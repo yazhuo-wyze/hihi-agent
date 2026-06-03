@@ -45,7 +45,7 @@ jobs:
 
       - name: Package binaries (linux/macos/windows × x64/arm64)
         working-directory: apps/cli
-        run: pnpm exec pkg . --no-bytecode --public-packages "*" --public --compress GZip --out-path pack/bin
+        run: pnpm exec pkg pack/index.cjs --no-bytecode --public-packages "*" --public --compress GZip --out-path pack/bin
 
       - name: List artifacts
         run: ls -lh apps/cli/pack/bin
