@@ -35,7 +35,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.pkg-cache
-          key: pkg-cache-node20-v1
+          key: pkg-cache-node22-v1
 
       - name: Build workspace (shared/core/cli)
         run: pnpm build
