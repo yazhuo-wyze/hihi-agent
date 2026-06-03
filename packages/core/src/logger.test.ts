@@ -3,13 +3,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const originalPkg = (process as NodeJS.Process & { pkg?: unknown }).pkg;
+const originalProcessPkg = (process as NodeJS.Process & { pkg?: unknown }).pkg;
 const originalHome = process.env.HIHI_HOME;
 let tempHome: string | null = null;
 
 afterEach(() => {
-  if (originalPkg === undefined) delete (process as NodeJS.Process & { pkg?: unknown }).pkg;
-  else (process as NodeJS.Process & { pkg?: unknown }).pkg = originalPkg;
+  if (originalProcessPkg === undefined) delete (process as NodeJS.Process & { pkg?: unknown }).pkg;
+  else (process as NodeJS.Process & { pkg?: unknown }).pkg = originalProcessPkg;
 
   if (originalHome === undefined) delete process.env.HIHI_HOME;
   else process.env.HIHI_HOME = originalHome;
