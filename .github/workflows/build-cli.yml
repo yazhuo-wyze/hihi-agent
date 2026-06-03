@@ -45,7 +45,10 @@ jobs:
 
       - name: Package binaries (linux/macos/windows × x64/arm64)
         working-directory: apps/cli
-        run: pnpm exec pkg pack/index.cjs --no-bytecode --public-packages "*" --public --compress GZip --out-path pack/bin
+        run: >
+          pnpm exec pkg pack/index.cjs
+          --targets node22-linux-x64,node22-linux-arm64,node22-macos-x64,node22-macos-arm64,node22-win-x64,node22-win-arm64
+          --no-bytecode --public-packages "*" --public --compress GZip --out-path pack/bin
 
       - name: List artifacts
         run: ls -lh apps/cli/pack/bin

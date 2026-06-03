@@ -3,6 +3,7 @@ import path from 'node:path';
 import { getAppPaths } from './paths.js';
 
 let rootLogger: Logger | null = null;
+const isPackagedBinary = Boolean((process as NodeJS.Process & { pkg?: unknown }).pkg);
 
 export interface LoggerOptions {
   level?: string;
@@ -11,7 +12,7 @@ export interface LoggerOptions {
 }
 
 function build(opts: LoggerOptions): Logger {
-  const level = opts.level || process.env.HIHI_LOG_LEVEL || 'info';
+  const level = (opts.level || process.env.HIHI_LOG_LEVEL || 'info') as pino.Level;
   const redact = {
     paths: [
       '*.apiKey',
@@ -23,6 +24,29 @@ function build(opts: LoggerOptions): Logger {
     ],
     censor: '[REDACTED]',
   };
+
+  if (isPackagedBinary) {
+    const streams: pino.StreamEntry[] = [];
+    if (opts.pretty !== false) {
+      streams.push({ level, stream: process.stderr });
+    }
+    if (opts.toFile !== false) {
+      const paths = getAppPaths();
+      streams.push({
+        level: 'trace',
+        stream: pino.destination(path.join(paths.logs, 'hihi.log')),
+      });
+    }
+    return pino(
+      {
+        level,
+        redact,
+        base: { pid: process.pid },
+        timestamp: pino.stdTimeFunctions.isoTime,
+      },
+      streams.length ? pino.multistream(streams) : undefined,
+    );
+  }
 
   const targets: pino.TransportTargetOptions[] = [];
   if (opts.pretty !== false) {
@@ -87,4 +111,3 @@ export function createLogger(scope: string): Logger {
 export function setLevel(level: string): void {
   if (rootLogger) rootLogger.level = level;
 }
-
