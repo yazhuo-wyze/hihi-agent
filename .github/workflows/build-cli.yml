@@ -1,0 +1,102 @@
+name: Build CLI binaries
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-cli-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build cross-platform binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache pkg prebuilt node binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.pkg-cache
+          key: pkg-cache-node20-v1
+
+      - name: Build workspace (shared/core/cli)
+        run: pnpm build
+
+      - name: Bundle CLI to single CJS
+        run: pnpm --filter @hihi-agent/cli build:pack
+
+      - name: Package binaries (linux/macos/windows × x64/arm64)
+        working-directory: apps/cli
+        run: pnpm exec pkg . --no-bytecode --public-packages "*" --public --compress GZip --out-path pack/bin
+
+      - name: List artifacts
+        run: ls -lh apps/cli/pack/bin
+
+      - name: Rename binaries with version + sha
+        working-directory: apps/cli/pack/bin
+        run: |
+          set -eux
+          VER=$(node -p "require('../../package.json').version")
+          SHA=${GITHUB_SHA::7}
+          for f in *; do
+            ext=""
+            base="$f"
+            if [[ "$f" == *.exe ]]; then ext=".exe"; base="${f%.exe}"; fi
+            target="${base#index-}"
+            mv "$f" "hihi-${VER}-${SHA}-${target}${ext}"
+          done
+          ls -lh
+
+      - name: Generate SHA256 checksums
+        working-directory: apps/cli/pack/bin
+        run: shasum -a 256 * > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hihi-cli-binaries
+          path: apps/cli/pack/bin/*
+          retention-days: 30
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: apps/cli/pack/bin/*
+
+  smoke-test:
+    name: Smoke test linux x64 binary
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: hihi-cli-binaries
+          path: bin
+      - name: Run --help
+        run: |
+          set -eux
+          chmod +x bin/*linux-x64* || true
+          BIN=$(ls bin/*linux-x64* | head -1)
+          "$BIN" --help
+          "$BIN" config show
